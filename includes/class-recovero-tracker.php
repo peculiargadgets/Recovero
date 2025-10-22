@@ -1,4 +1,4 @@
-<?php
+?php
 /**
  * Recovero Tracker Class
  * Handles cart tracking functionality
@@ -38,17 +38,30 @@ class Recovero_Tracker {
         // Track cart item removal
         add_action('woocommerce_cart_item_removed', [$this, 'track_cart_removal'], 10, 2);
         
+        // Track cart item quantity change
+        add_action('woocommerce_after_cart_item_quantity_update', [$this, 'track_quantity_change'], 10, 4);
+        
         // Track user logout
         add_action('wp_logout', [$this, 'clear_session']);
         
         // Track checkout process
         add_action('woocommerce_before_checkout_process', [$this, 'track_checkout_start']);
+        add_action('woocommerce_checkout_update_order_meta', [$this, 'track_checkout_progress'], 10, 2);
         
         // Track order completion
         add_action('woocommerce_thankyou', [$this, 'track_order_completion']);
         
         // Track page views for cart abandonment
         add_action('wp_footer', [$this, 'track_page_view']);
+        
+        // Track form submissions
+        add_action('woocommerce_checkout_process', [$this, 'track_checkout_form_submission']);
+        
+        // Track customer registration
+        add_action('user_register', [$this, 'track_customer_registration']);
+        
+        // Track guest checkout attempt
+        add_action('woocommerce_before_checkout_form', [$this, 'track_guest_checkout_attempt']);
     }
     
     /**
@@ -87,6 +100,13 @@ class Recovero_Tracker {
     }
     
     /**
+     * Track cart quantity change
+     */
+    public function track_quantity_change($cart_item_key, $quantity, $old_quantity, $cart) {
+        $this->track_cart();
+    }
+    
+    /**
      * Get cart data
      */
     private function get_cart_data() {
@@ -121,6 +141,7 @@ class Recovero_Tracker {
         $session_id = $this->get_session_id();
         $email = $this->get_user_email();
         $phone = $this->get_user_phone();
+        $name = $this->get_user_name();
         $ip = $this->get_user_ip();
         
         $cart_info = [
@@ -133,6 +154,11 @@ class Recovero_Tracker {
             'location' => $this->get_user_location($ip),
             'status' => 'abandoned'
         ];
+        
+        // Save customer name to cart data
+        if (!empty($name)) {
+            $cart_info['customer_name'] = $name;
+        }
         
         $this->db->save_cart($cart_info);
     }
@@ -160,7 +186,9 @@ class Recovero_Tracker {
         
         if ($user_id > 0) {
             $user = get_userdata($user_id);
-            return $user ? $user->user_email : '';
+            if ($user) {
+                return $user->user_email;
+            }
         }
         
         // Check for guest email in checkout form
@@ -171,6 +199,41 @@ class Recovero_Tracker {
         // Check for email in session
         if (WC()->session && WC()->session->get('billing_email')) {
             return WC()->session->get('billing_email');
+        }
+        
+        // Check for email in URL parameters
+        if (isset($_GET['email'])) {
+            return sanitize_email($_GET['email']);
+        }
+        
+        return '';
+    }
+    
+    /**
+     * Get user name
+     */
+    private function get_user_name() {
+        $user_id = get_current_user_id();
+        
+        if ($user_id > 0) {
+            $user = get_userdata($user_id);
+            if ($user) {
+                return $user->first_name . ' ' . $user->last_name;
+            }
+        }
+        
+        // Check for guest name in checkout form
+        if (isset($_POST['billing_first_name']) && isset($_POST['billing_last_name'])) {
+            return sanitize_text_field($_POST['billing_first_name']) . ' ' . sanitize_text_field($_POST['billing_last_name']);
+        }
+        
+        // Check for name in session
+        if (WC()->session) {
+            $first_name = WC()->session->get('billing_first_name');
+            $last_name = WC()->session->get('billing_last_name');
+            if ($first_name && $last_name) {
+                return $first_name . ' ' . $last_name;
+            }
         }
         
         return '';
@@ -268,8 +331,89 @@ class Recovero_Tracker {
                 'session_id' => $session_id,
                 'status' => 'checkout',
                 'email' => $this->get_user_email(),
-                'phone' => $this->get_user_phone()
+                'phone' => $this->get_user_phone(),
+                'customer_name' => $this->get_user_name()
             ]);
+        }
+    }
+    
+    /**
+     * Track checkout progress
+     */
+    public function track_checkout_progress($order_id, $data) {
+        $session_id = $this->get_session_id();
+        $cart = $this->db->get_cart_by_session($session_id);
+        
+        if ($cart) {
+            // Update cart with checkout data
+            $checkout_data = [
+                'session_id' => $session_id,
+                'status' => 'checkout',
+                'email' => isset($data['billing_email']) ? sanitize_email($data['billing_email']) : $this->get_user_email(),
+                'phone' => isset($data['billing_phone']) ? sanitize_text_field($data['billing_phone']) : $this->get_user_phone(),
+                'customer_name' => isset($data['billing_first_name']) && isset($data['billing_last_name']) ? 
+                    sanitize_text_field($data['billing_first_name']) . ' ' . sanitize_text_field($data['billing_last_name']) : $this->get_user_name(),
+                'billing_address' => isset($data['billing_address_1']) ? sanitize_text_field($data['billing_address_1']) : '',
+                'billing_city' => isset($data['billing_city']) ? sanitize_text_field($data['billing_city']) : '',
+                'billing_country' => isset($data['billing_country']) ? sanitize_text_field($data['billing_country']) : '',
+                'billing_postcode' => isset($data['billing_postcode']) ? sanitize_text_field($data['billing_postcode']) : ''
+            ];
+            
+            $this->db->save_cart($checkout_data);
+        }
+    }
+    
+    /**
+     * Track checkout form submission
+     */
+    public function track_checkout_form_submission() {
+        $session_id = $this->get_session_id();
+        $cart = $this->db->get_cart_by_session($session_id);
+        
+        if ($cart) {
+            // Update cart with form submission data
+            $this->db->save_cart([
+                'session_id' => $session_id,
+                'status' => 'checkout',
+                'email' => $this->get_user_email(),
+                'phone' => $this->get_user_phone(),
+                'customer_name' => $this->get_user_name()
+            ]);
+        }
+    }
+    
+    /**
+     * Track customer registration
+     */
+    public function track_customer_registration($user_id) {
+        $session_id = $this->get_session_id();
+        $cart = $this->db->get_cart_by_session($session_id);
+        
+        if ($cart) {
+            // Update cart with registered user data
+            $user = get_userdata($user_id);
+            if ($user) {
+                $this->db->save_cart([
+                    'session_id' => $session_id,
+                    'user_id' => $user_id,
+                    'email' => $user->user_email,
+                    'customer_name' => $user->first_name . ' ' . $user->last_name,
+                    'phone' => get_user_meta($user_id, 'billing_phone', true)
+                ]);
+            }
+        }
+    }
+    
+    /**
+     * Track guest checkout attempt
+     */
+    public function track_guest_checkout_attempt() {
+        $session_id = $this->get_session_id();
+        $cart = $this->db->get_cart_by_session($session_id);
+        
+        if (!$cart) {
+            // Create cart entry for guest checkout attempt
+            $this->save_cart_data($this->get_cart_data());
         }
     }
     
