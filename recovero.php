@@ -11,7 +11,7 @@
  * Text Domain: recovero
  * Domain Path: /languages
  * WC requires at least: 5.0
- * WC tested up to: 8.0
+ * WC tested up to: 10.0
  */
 
 // Prevent direct access
@@ -57,6 +57,18 @@ function recovero_check_requirements() {
     if (!is_plugin_active('woocommerce/woocommerce.php')) {
         deactivate_plugins(plugin_basename(__FILE__));
         wp_die(__('Recovero requires WooCommerce to be installed and activated.', 'recovero'));
+    }
+    
+    // Check WooCommerce HPOS compatibility
+    if (class_exists('WooCommerce')) {
+        // Declare HPOS compatibility
+        if (version_compare(WC()->version, '8.0', '>=')) {
+            add_action('before_woocommerce_init', function() {
+                if (class_exists(\Automattic\WooCommerce\Utilities\FeaturesUtil::class)) {
+                    \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+                }
+            });
+        }
     }
 }
 
@@ -187,6 +199,13 @@ function recovero_init_plugin() {
     if (!class_exists('WooCommerce')) {
         return;
     }
+    
+    // Declare HPOS compatibility
+    add_action('before_woocommerce_init', function() {
+        if (class_exists(\Automattic\WooCommerce\Utilities\FeaturesUtil::class)) {
+            \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+        }
+    });
     
     // Initialize plugin
     recovero();
