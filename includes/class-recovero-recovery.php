@@ -1,200 +1,256 @@
 <?php
-if (! defined( 'ABSPATH' ) ) exit;
+if (!defined('ABSPATH')) exit;
 
-class Recovero_Recovery {
-    protected $db;
+if (!class_exists('WP_List_Table')) {
+    require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
+}
 
-    public function __construct( $db = null ) {
-        $this->db = $db ? $db : new Recovero_DB();
+/**
+ * Recovero Cart List Table
+ */
+class Recovero_Carts_List extends WP_List_Table {
+    private $db;
 
-        // Hook: when order is completed/thankyou, mark recovered if match
-        add_action( 'woocommerce_thankyou', [ $this, 'handle_order_created' ], 10, 1 );
-    }
-
-    /**
-     * Create & return recovery link token and persist log entry
-     */
-    public function create_and_send( $cart_row ) {
-        $token = recovero_generate_token(32);
-        // insert a recovery log
-        $this->db->add_recovery_log([
-            'cart_id' => $cart_row->id,
-            'action'  => 'generate_token',
-            'channel' => 'email',
-            'payload' => $token,
-            'created_at' => current_time('mysql')
+    public function __construct($db) {
+        parent::__construct([
+            'singular' => __('Recovero Cart', 'recovero'),
+            'plural'   => __('Recovero Carts', 'recovero'),
+            'ajax'     => false
         ]);
-
-        // send email
-        $this->send_email( $cart_row, $token );
-
-        // If Pro & phone present, send WhatsApp as well
-        $phone = isset( $cart_row->phone ) ? $cart_row->phone : '';
-        if ( ! empty( $phone ) && get_option( 'recovero_whatsapp_enable', false ) ) {
-            $this->send_whatsapp( $cart_row, $token );
-        }
+        $this->db = $db;
     }
 
-    /**
-     * Send recovery email (HTML) using template from views/email-template.php
-     * @param object|array $cart_row
-     * @param string $token
-     */
-    public function send_email( $cart_row, $token = '' ) {
-        $to = isset( $cart_row->email ) ? $cart_row->email : '';
-        if ( empty( $to ) ) return false;
-
-        $from = sanitize_email( get_option( 'recovero_email_from', get_option('admin_email') ) );
-        $subject = apply_filters( 'recovero_email_subject', __( 'You left items in your cart', 'recovero' ) );
-
-        $recovery_link = add_query_arg( 'recovero_token', $token, home_url( '/' ) );
-
-        // load view template (prefer child override in plugin dir)
-        $template_file = RECOVERO_PATH . 'assets/views/email-template.php';
-        ob_start();
-        if ( file_exists( $template_file ) ) {
-            // provide variables for template
-            $cart_items = maybe_unserialize( $cart_row->cart_data );
-            $subtotal = isset( $cart_row->subtotal ) ? $cart_row->subtotal : '';
-            $customer_name = '';
-            if ( isset( $cart_row->user_id ) && ! empty( $cart_row->user_id ) ) {
-                $user = get_userdata( $cart_row->user_id );
-                $customer_name = $user ? $user->display_name : '';
-            }
-            include $template_file;
-        } else {
-            // fallback
-            echo '<p>' . esc_html__( 'You left items in your cart. Click the link to recover:', 'recovero' ) . '</p>';
-            echo '<p><a href="' . esc_url( $recovery_link ) . '">' . esc_html__( 'Recover my cart', 'recovero' ) . '</a></p>';
-        }
-        $message = ob_get_clean();
-
-        $headers = [ 'Content-Type: text/html; charset=UTF-8' ];
-        if ( ! empty( $from ) ) {
-            $headers[] = 'From: ' . wp_specialchars_decode( get_bloginfo( 'name' ) ) . ' <' . $from . '>';
-        }
-
-        // send
-        $sent = wp_mail( $to, $subject, $message, $headers );
-
-        // log
-        $this->db->add_recovery_log([
-            'cart_id' => $cart_row->id,
-            'action'  => 'email_sent',
-            'channel' => 'email',
-            'payload' => json_encode( [ 'to' => $to, 'token' => $token, 'sent' => $sent ] ),
-            'created_at' => current_time('mysql')
-        ]);
-
-        return $sent;
+    public function get_columns() {
+        return [
+            'cb' => '<input type="checkbox" />',
+            'id' => 'ID',
+            'email' => __('Email', 'recovero'),
+            'items' => __('Items', 'recovero'),
+            'subtotal' => __('Subtotal', 'recovero'),
+            'ip' => __('IP', 'recovero'),
+            'created_at' => __('Created At', 'recovero'),
+            'status' => __('Status', 'recovero'),
+            'actions' => __('Actions', 'recovero')
+        ];
     }
 
-    /**
-     * Send WhatsApp (text) message using Recovero_WhatsApp
-     */
-    public function send_whatsapp( $cart_row, $token = '' ) {
-        if ( ! class_exists( 'Recovero_WhatsApp' ) ) {
-            require_once RECOVERO_PATH . 'includes/class-recovero-whatsapp.php';
-        }
-        $wa = new Recovero_WhatsApp();
+    public function column_cb($item) {
+        return sprintf('<input type="checkbox" name="cart_ids[]" value="%d" />', $item->id);
+    }
 
-        $to = isset( $cart_row->phone ) ? $cart_row->phone : '';
-        if ( empty( $to ) ) return new WP_Error( 'no_phone', 'No phone number' );
-
-        // build message
-        $store = get_bloginfo( 'name' );
-        $customer = '';
-        if ( ! empty( $cart_row->user_id ) ) {
-            $user = get_userdata( $cart_row->user_id );
-            $customer = $user ? $user->display_name : '';
-        }
-
-        // basic items list
-        $items = maybe_unserialize( $cart_row->cart_data );
-        $list = [];
-        if ( is_array( $items ) ) {
-            foreach ( $items as $it ) {
-                // item may be serialized product object or array
-                if ( isset( $it['data'] ) && is_object( $it['data'] ) ) {
-                    $name = $it['data']->get_name();
-                    $qty = isset( $it['quantity'] ) ? intval( $it['quantity'] ) : 1;
-                } else {
-                    $name = isset( $it['name'] ) ? $it['name'] : ( isset( $it['product_id'] ) ? 'Product ' . $it['product_id'] : 'Item' );
-                    $qty = isset( $it['qty'] ) ? intval( $it['qty'] ) : ( isset( $it['quantity'] ) ? intval( $it['quantity'] ) : 1 );
-                }
-                $list[] = $name . ' x ' . $qty;
+    public function column_items($item) {
+        $items = maybe_unserialize($item->cart_data);
+        if (is_array($items)) {
+            $out = [];
+            foreach ($items as $ci) {
+                $name = isset($ci['data']) && is_object($ci['data']) ? $ci['data']->get_name() : (isset($ci['product_id']) ? 'Product ' . esc_html($ci['product_id']) : 'Item');
+                $qty = isset($ci['quantity']) ? intval($ci['quantity']) : (isset($ci['qty']) ? intval($ci['qty']) : 1);
+                $out[] = esc_html($name) . ' x ' . $qty;
             }
+            return '<small>' . implode(', ', $out) . '</small>';
         }
-        $items_text = implode( ', ', array_slice( $list, 0, 10 ) );
+        return '-';
+    }
 
-        $recovery_link = add_query_arg( 'recovero_token', $token, home_url( '/' ) );
-
-        // Compose message - you can customize or use template messages
-        $message = sprintf( "Hi %s,\nYou left items in your cart at %s: %s\nComplete your order: %s", 
-            ! empty( $customer ) ? $customer : 'there',
-            $store,
-            $items_text,
-            $recovery_link
+    public function column_actions($item) {
+        $resend = wp_nonce_url(admin_url('admin.php?page=recovero&action=resend&cart=' . $item->id), 'recovero_admin_action', 'recovero_nonce');
+        $export = wp_nonce_url(admin_url('admin.php?page=recovero&action=export&cart=' . $item->id), 'recovero_admin_action', 'recovero_nonce');
+        return sprintf('<a class="button" href="%s">%s</a> <a class="button" href="%s">%s</a>',
+            esc_url($resend), __('Resend Email', 'recovero'),
+            esc_url($export), __('Export', 'recovero')
         );
-
-        $res = $wa->send_text( $to, $message );
-
-        // log
-        $this->db->add_recovery_log([
-            'cart_id' => $cart_row->id,
-            'action'  => 'whatsapp_sent',
-            'channel' => 'whatsapp',
-            'payload' => is_wp_error( $res ) ? $res->get_error_message() : json_encode( $res ),
-            'created_at' => current_time('mysql')
-        ]);
-
-        return $res;
     }
 
-    /**
-     * When an order is created (thankyou page), try to find matching abandoned cart and mark as recovered
-     * @param int $order_id
-     */
-    public function handle_order_created( $order_id ) {
-        if ( ! $order_id ) return;
-
-        $order = wc_get_order( $order_id );
-        if ( ! $order ) return;
-
-        $email = $order->get_billing_email();
-        $user_id = $order->get_user_id();
-        $phone = $order->get_billing_phone();
+    public function prepare_items() {
+        $columns  = $this->get_columns();
+        $hidden   = [];
+        $sortable = [];
+        $this->_column_headers = [$columns, $hidden, $sortable];
 
         global $wpdb;
         $table = $wpdb->prefix . 'recovero_abandoned_carts';
+        $items = $wpdb->get_results("SELECT * FROM {$table} ORDER BY created_at DESC LIMIT 200");
+        $this->items = $items;
+    }
+}
 
-        // Try match by user_id, then email, then session (if stored in order meta)
-        $cart = null;
-        if ( $user_id ) {
-            $cart = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE user_id = %d ORDER BY created_at DESC LIMIT 1", $user_id ) );
-        }
-        if ( ! $cart && $email ) {
-            $cart = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE email = %s ORDER BY created_at DESC LIMIT 1", $email ) );
-        }
-        if ( ! $cart && $phone ) {
-            $cart = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE phone = %s ORDER BY created_at DESC LIMIT 1", $phone ) );
+/**
+ * Recovero Admin Class
+ */
+class Recovero_Admin {
+    private $db;
+
+    public function __construct() {
+        $this->db = new Recovero_DB();
+
+        add_action('admin_menu', [$this, 'register_menu']);
+        add_action('admin_post_recovero_settings_save', [$this, 'save_settings']);
+        add_action('admin_init', [$this, 'maybe_handle_actions']);
+    }
+
+    public function register_menu() {
+        add_menu_page('Recovero', 'Recovero', 'manage_woocommerce', 'recovero', [$this, 'page_dashboard'], 'dashicons-analytics', 56);
+        add_submenu_page('recovero', 'Settings', 'Settings', 'manage_woocommerce', 'recovero-settings', [$this, 'page_settings']);
+        add_submenu_page('recovero', 'Logs', 'Logs', 'manage_woocommerce', 'recovero-logs', [$this, 'page_logs']);
+    }
+
+    public function page_dashboard() {
+        ?>
+        <div class="wrap recovero-admin">
+            <h1><?php esc_html_e('Recovero Dashboard', 'recovero'); ?></h1>
+            <p><?php esc_html_e('Quick overview of abandoned carts and recent recovery actions.', 'recovero'); ?></p>
+
+            <h2><?php esc_html_e('Quick Actions', 'recovero'); ?></h2>
+            <p>
+                <a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=recovero-logs')); ?>"><?php esc_html_e('View Recovery Logs', 'recovero'); ?></a>
+                <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=recovero-settings')); ?>"><?php esc_html_e('Settings', 'recovero'); ?></a>
+            </p>
+
+            <h2><?php esc_html_e('Recent Abandoned Carts', 'recovero'); ?></h2>
+            <?php
+            $list = new Recovero_Carts_List($this->db);
+            $list->prepare_items();
+            $list->display();
+            ?>
+        </div>
+        <?php
+    }
+
+    public function page_settings() {
+        $email_from = get_option('recovero_email_from', get_option('admin_email'));
+        $delay_hours = get_option('recovero_delay_hours', 1);
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Recovero Settings', 'recovero'); ?></h1>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <?php wp_nonce_field('recovero_settings_save'); ?>
+                <input type="hidden" name="action" value="recovero_settings_save">
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php esc_html_e('From Email', 'recovero'); ?></th>
+                        <td><input type="email" name="recovero_email_from" class="regular-text" value="<?php echo esc_attr($email_from); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Reminder Delay (hours)', 'recovero'); ?></th>
+                        <td><input type="number" name="recovero_delay_hours" value="<?php echo esc_attr($delay_hours); ?>" min="1" max="168"></td>
+                    </tr>
+                </table>
+                <?php submit_button(__('Save Settings', 'recovero')); ?>
+            </form>
+            <hr/>
+            <h2><?php esc_html_e('Tools', 'recovero'); ?></h2>
+            <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=recovero&action=purge')); ?>">
+                <?php wp_nonce_field('recovero_admin_action', 'recovero_nonce'); ?>
+                <input type="submit" class="button button-secondary" value="<?php esc_attr_e('Purge Old Data', 'recovero'); ?>">
+            </form>
+        </div>
+        <?php
+    }
+
+    public function page_logs() {
+        global $wpdb;
+        $table = $wpdb->prefix . 'recovero_recovery_logs';
+        $logs = $wpdb->get_results("SELECT * FROM {$table} ORDER BY sent_at DESC LIMIT 200");
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e('Recovero Recovery Logs', 'recovero'); ?></h1>
+            <table class="widefat striped">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('ID', 'recovero'); ?></th>
+                        <th><?php esc_html_e('Cart ID', 'recovero'); ?></th>
+                        <th><?php esc_html_e('Method', 'recovero'); ?></th>
+                        <th><?php esc_html_e('Status', 'recovero'); ?></th>
+                        <th><?php esc_html_e('Token', 'recovero'); ?></th>
+                        <th><?php esc_html_e('Sent At', 'recovero'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($logs as $log) : ?>
+                    <tr>
+                        <td><?php echo esc_html($log->id); ?></td>
+                        <td><?php echo esc_html($log->cart_id); ?></td>
+                        <td><?php echo esc_html($log->method); ?></td>
+                        <td><?php echo esc_html($log->status); ?></td>
+                        <td><?php echo esc_html($log->token); ?></td>
+                        <td><?php echo esc_html($log->sent_at); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
+    }
+
+    public function save_settings() {
+        if (!current_user_can('manage_woocommerce')) wp_die(__('Unauthorized', 'recovero'));
+        check_admin_referer('recovero_settings_save');
+
+        $email = isset($_POST['recovero_email_from']) ? sanitize_email($_POST['recovero_email_from']) : '';
+        update_option('recovero_email_from', $email);
+
+        $delay = isset($_POST['recovero_delay_hours']) ? absint($_POST['recovero_delay_hours']) : 1;
+        update_option('recovero_delay_hours', $delay);
+
+        wp_safe_redirect(admin_url('admin.php?page=recovero-settings&updated=1'));
+        exit;
+    }
+
+    public function maybe_handle_actions() {
+        if (!isset($_GET['page']) || $_GET['page'] !== 'recovero') return;
+        if (!isset($_GET['action'])) return;
+
+        if (!isset($_REQUEST['recovero_nonce']) || !wp_verify_nonce($_REQUEST['recovero_nonce'], 'recovero_admin_action')) return;
+
+        $action = sanitize_text_field($_GET['action']);
+        if ($action === 'resend' && isset($_GET['cart'])) {
+            $cart_id = absint($_GET['cart']);
+            $this->resend_email($cart_id);
+            wp_safe_redirect(admin_url('admin.php?page=recovero&resent=1'));
+            exit;
         }
 
-        if ( $cart ) {
-            // mark recovered
-            $wpdb->update( $table, [
-                'status' => 'recovered',
-                'recovered_at' => current_time('mysql')
-            ], [ 'id' => $cart->id ], [ '%s', '%s' ], [ '%d' ] );
-
-            // log recovery
-            $wpdb->insert( $wpdb->prefix . 'recovero_recovery_logs', [
-                'cart_id' => $cart->id,
-                'action' => 'order_created',
-                'channel' => 'order',
-                'payload' => json_encode( [ 'order_id' => $order_id ] ),
-                'created_at' => current_time('mysql')
-            ] );
+        if ($action === 'export' && isset($_GET['cart'])) {
+            $cart_id = absint($_GET['cart']);
+            $this->export_cart($cart_id);
+            exit;
         }
+
+        if ($action === 'purge') {
+            $this->purge_old();
+            wp_safe_redirect(admin_url('admin.php?page=recovero-settings&purged=1'));
+            exit;
+        }
+    }
+
+    private function resend_email($cart_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . 'recovero_abandoned_carts';
+        $cart = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $cart_id));
+        if ($cart) {
+            $recovery = new Recovero_Recovery();
+            $recovery->send_email($cart);
+        }
+    }
+
+    private function export_cart($cart_id) {
+        if (!current_user_can('manage_woocommerce')) wp_die(__('Unauthorized', 'recovero'));
+        global $wpdb;
+        $table = $wpdb->prefix . 'recovero_abandoned_carts';
+        $cart = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $cart_id));
+        if (!$cart) wp_die(__('Cart not found', 'recovero'));
+
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename=recovero-cart-' . $cart_id . '.json');
+        echo json_encode($cart);
+        exit;
+    }
+
+    private function purge_old() {
+        global $wpdb;
+        $days = absint(get_option('recovero_purge_days', 90));
+        $threshold = date('Y-m-d H:i:s', strtotime("-{$days} days", current_time('timestamp')));
+        $table = $wpdb->prefix . 'recovero_abandoned_carts';
+        $wpdb->query($wpdb->prepare("DELETE FROM {$table} WHERE created_at < %s", $threshold));
     }
 }
