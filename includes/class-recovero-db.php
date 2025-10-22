@@ -99,7 +99,12 @@ class Recovero_DB {
             'ip' => isset($data['ip']) ? sanitize_text_field($data['ip']) : null,
             'location' => isset($data['location']) ? sanitize_textarea_field($data['location']) : null,
             'status' => isset($data['status']) ? sanitize_text_field($data['status']) : 'abandoned',
-            'created_at' => isset($data['created_at']) ? $data['created_at'] : current_time('mysql')
+            'created_at' => isset($data['created_at']) ? $data['created_at'] : current_time('mysql'),
+            'customer_name' => isset($data['customer_name']) ? sanitize_text_field($data['customer_name']) : null,
+            'billing_address' => isset($data['billing_address']) ? sanitize_text_field($data['billing_address']) : null,
+            'billing_city' => isset($data['billing_city']) ? sanitize_text_field($data['billing_city']) : null,
+            'billing_country' => isset($data['billing_country']) ? sanitize_text_field($data['billing_country']) : null,
+            'billing_postcode' => isset($data['billing_postcode']) ? sanitize_text_field($data['billing_postcode']) : null
         ];
     }
     
@@ -116,7 +121,12 @@ class Recovero_DB {
             '%s', // ip
             '%s', // location
             '%s', // status
-            '%s'  // created_at
+            '%s', // created_at
+            '%s', // customer_name
+            '%s', // billing_address
+            '%s', // billing_city
+            '%s', // billing_country
+            '%s'  // billing_postcode
         ];
     }
     
