@@ -97,13 +97,23 @@ $stats = $this->db->get_statistics();
     
     <!-- Recent Activity -->
     <div class="recovero-chart-container">
-        <h2 class="recovero-chart-title"><?php esc_html_e('Recent Activity', 'recovero'); ?></h2>
+        <h2 class="recovero-chart-title"><?php esc_html_e('Recent Customer Activity', 'recovero'); ?></h2>
         <div class="recovero-activity-list">
             <?php
-            $recent_carts = $this->db->get_abandoned_carts(5);
+            $recent_carts = $this->db->get_abandoned_carts(10);
             if (!empty($recent_carts)) {
                 foreach ($recent_carts as $cart) {
                     $time_ago = human_time_diff(strtotime($cart->created_at), current_time('timestamp')) . ' ' . __('ago', 'recovero');
+                    $cart_data = maybe_unserialize($cart->cart_data);
+                    $item_count = is_array($cart_data) ? count($cart_data) : 0;
+                    $total = 0;
+                    if (is_array($cart_data)) {
+                        foreach ($cart_data as $item) {
+                            $price = isset($item['price']) ? floatval($item['price']) : 0;
+                            $quantity = isset($item['quantity']) ? intval($item['quantity']) : 1;
+                            $total += $price * $quantity;
+                        }
+                    }
                     ?>
                     <div class="recovero-activity-item">
                         <div class="recovero-activity-icon">
@@ -112,7 +122,9 @@ $stats = $this->db->get_statistics();
                         <div class="recovero-activity-content">
                             <div class="recovero-activity-title">
                                 <?php 
-                                if (!empty($cart->email)) {
+                                if (!empty($cart->customer_name)) {
+                                    echo esc_html($cart->customer_name);
+                                } elseif (!empty($cart->email)) {
                                     echo esc_html($cart->email);
                                 } else {
                                     esc_html_e('Guest User', 'recovero');
@@ -121,11 +133,18 @@ $stats = $this->db->get_statistics();
                             </div>
                             <div class="recovero-activity-description">
                                 <?php 
-                                $cart_data = maybe_unserialize($cart->cart_data);
-                                $item_count = is_array($cart_data) ? count($cart_data) : 0;
-                                printf(esc_html__('%d items in cart', 'recovero'), $item_count);
+                                printf(esc_html__('%d items • Total: %s', 'recovero'), $item_count, wc_price($total));
+                                if (!empty($cart->location)) {
+                                    echo ' • ' . esc_html($cart->location);
+                                }
                                 ?>
                             </div>
+                            <?php if (!empty($cart->phone)): ?>
+                            <div class="recovero-activity-phone">
+                                <i class="dashicons dashicons-phone"></i>
+                                <?php echo esc_html($cart->phone); ?>
+                            </div>
+                            <?php endif; ?>
                             <div class="recovero-activity-time"><?php echo esc_html($time_ago); ?></div>
                         </div>
                         <div class="recovero-activity-status">
@@ -137,7 +156,7 @@ $stats = $this->db->get_statistics();
                     <?php
                 }
             } else {
-                echo '<p>' . esc_html__('No recent activity found.', 'recovero') . '</p>';
+                echo '<p>' . esc_html__('No recent activity found. Customers will appear here when they add items to cart.', 'recovero') . '</p>';
             }
             ?>
         </div>
@@ -248,6 +267,17 @@ $stats = $this->db->get_statistics();
 .recovero-activity-time {
     color: #999;
     font-size: 0.8em;
+}
+
+.recovero-activity-phone {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 2px;
+}
+
+.recovero-activity-phone i {
+    font-size: 12px;
+    margin-right: 5px;
 }
 
 .recovero-status-list {
