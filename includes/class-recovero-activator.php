@@ -66,10 +66,16 @@ class Recovero_Activator {
                 status VARCHAR(20) DEFAULT 'abandoned',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                customer_name VARCHAR(255) DEFAULT NULL,
+                billing_address VARCHAR(255) DEFAULT NULL,
+                billing_city VARCHAR(100) DEFAULT NULL,
+                billing_country VARCHAR(100) DEFAULT NULL,
+                billing_postcode VARCHAR(20) DEFAULT NULL,
                 INDEX idx_status (status),
                 INDEX idx_email (email),
                 INDEX idx_created_at (created_at),
-                INDEX idx_session_id (session_id)
+                INDEX idx_session_id (session_id),
+                INDEX idx_customer_name (customer_name)
             ) $charset_collate",
             
             // Recovery logs table
