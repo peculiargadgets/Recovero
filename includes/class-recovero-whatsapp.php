@@ -69,4 +69,52 @@ class Recovero_WhatsApp {
     /**
      * Send a template message (if you have pre-approved template)
      * This uses message templates. Provide $template_name and $language (e.g., en_US) and components array.
-     * @param*
+     * @param string $to
+     * @param string $template_name
+     * @param string $language
+     * @param array $components
+     */
+    public function send_template( $to, $template_name, $language = 'en_US', $components = [] ) {
+        if ( empty( $this->access_token ) || empty( $this->phone_number_id ) ) {
+            return new WP_Error( 'wa_not_configured', 'WhatsApp not configured' );
+        }
+
+        $to = preg_replace('/[^0-9]/', '', $to);
+        $endpoint = "https://graph.facebook.com/{$this->api_version}/{$this->phone_number_id}/messages";
+
+        $body = [
+            'messaging_product' => 'whatsapp',
+            'to' => $to,
+            'type' => 'template',
+            'template' => [
+                'name' => $template_name,
+                'language' => ['code' => $language],
+            ]
+        ];
+
+        if ( ! empty( $components ) && is_array( $components ) ) {
+            $body['template']['components'] = $components;
+        }
+
+        $args = [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $this->access_token,
+                'Content-Type' => 'application/json'
+            ],
+            'body' => wp_json_encode( $body ),
+            'timeout' => 20
+        ];
+
+        $resp = wp_remote_post( $endpoint, $args );
+
+        if ( is_wp_error( $resp ) ) return $resp;
+
+        $code = wp_remote_retrieve_response_code( $resp );
+        $body = wp_remote_retrieve_body( $resp );
+        $json = json_decode( $body, true );
+
+        if ( $code >= 200 && $code < 300 ) return $json;
+
+        return new WP_Error( 'wa_api_error', $body );
+    }
+}
