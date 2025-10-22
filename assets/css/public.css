@@ -1,2 +1,640 @@
-/* Recovero public styles (minimal) */
-.recovero-exit-popup { position: fixed; bottom: 20px; right: 20px; background: #fff; border: 1px solid #ddd; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 99999; border-radius: 6px; }
+/**
+ * Recovero Public Styles
+ */
+
+/* Exit Intent Popup */
+.recovero-exit-intent {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    animation: recovero-fadeIn 0.3s ease-out;
+}
+
+.recovero-exit-intent.show {
+    display: flex;
+}
+
+.recovero-exit-intent-content {
+    background: #fff;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    animation: recovero-slideUp 0.4s ease-out;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.recovero-exit-intent-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.2s ease;
+}
+
+.recovero-exit-intent-close:hover {
+    color: #333;
+}
+
+.recovero-exit-intent-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.recovero-exit-intent-message {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 25px;
+    line-height: 1.5;
+}
+
+.recovero-exit-intent-discount {
+    background: #28a745;
+    color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.recovero-exit-intent-email {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    margin-bottom: 15px;
+    transition: border-color 0.2s ease;
+}
+
+.recovero-exit-intent-email:focus {
+    outline: none;
+    border-color: #0073aa;
+}
+
+.recovero-exit-intent-button {
+    background: #0073aa;
+    color: #fff;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.recovero-exit-intent-button:hover {
+    background: #005a87;
+}
+
+.recovero-exit-intent-no-thanks {
+    background: none;
+    border: none;
+    color: #999;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 15px;
+}
+
+/* Cart Recovery Banner */
+.recovero-recovery-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    padding: 15px 20px;
+    text-align: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    transform: translateY(-100%);
+    transition: transform 0.3s ease;
+}
+
+.recovero-recovery-banner.show {
+    transform: translateY(0);
+}
+
+.recovero-recovery-banner-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.recovero-recovery-banner-text {
+    flex: 1;
+    margin-right: 20px;
+}
+
+.recovero-recovery-banner-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.recovero-recovery-banner-message {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.recovero-recovery-banner-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.recovero-recovery-banner-button {
+    background: #fff;
+    color: #667eea;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+}
+
+.recovero-recovery-banner-button:hover {
+    transform: translateY(-2px);
+}
+
+.recovero-recovery-banner-close {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.recovero-recovery-banner-close:hover {
+    opacity: 1;
+}
+
+/* WhatsApp Widget */
+.recovero-whatsapp-widget {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999;
+}
+
+.recovero-whatsapp-button {
+    background: #25d366;
+    color: #fff;
+    border: none;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.recovero-whatsapp-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
+}
+
+.recovero-whatsapp-popup {
+    position: absolute;
+    bottom: 80px;
+    right: 0;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    width: 300px;
+    display: none;
+    animation: recovero-slideUp 0.3s ease-out;
+}
+
+.recovero-whatsapp-popup.show {
+    display: block;
+}
+
+.recovero-whatsapp-popup-header {
+    background: #25d366;
+    color: #fff;
+    padding: 15px;
+    border-radius: 12px 12px 0 0;
+    font-weight: 600;
+}
+
+.recovero-whatsapp-popup-body {
+    padding: 15px;
+}
+
+.recovero-whatsapp-popup-message {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.recovero-whatsapp-popup-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.recovero-whatsapp-popup-button {
+    background: #25d366;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.2s ease;
+}
+
+.recovero-whatsapp-popup-button:hover {
+    background: #128c7e;
+}
+
+/* Push Notification */
+.recovero-push-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 15px;
+    max-width: 350px;
+    z-index: 1001;
+    display: none;
+    animation: recovero-slideInRight 0.4s ease-out;
+}
+
+.recovero-push-notification.show {
+    display: block;
+}
+
+.recovero-push-notification-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.recovero-push-notification-icon {
+    width: 40px;
+    height: 40px;
+    background: #0073aa;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    margin-right: 12px;
+    font-size: 18px;
+}
+
+.recovero-push-notification-title {
+    font-weight: 600;
+    color: #333;
+    flex: 1;
+}
+
+.recovero-push-notification-close {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.recovero-push-notification-body {
+    color: #666;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.recovero-push-notification-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+}
+
+.recovero-push-notification-button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.recovero-push-notification-button.primary {
+    background: #0073aa;
+    color: #fff;
+}
+
+.recovero-push-notification-button.primary:hover {
+    background: #005a87;
+}
+
+.recovero-push-notification-button.secondary {
+    background: #f1f1f1;
+    color: #333;
+}
+
+.recovero-push-notification-button.secondary:hover {
+    background: #e1e1e1;
+}
+
+/* Cart Recovery Tab */
+.recovero-cart-tab {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: #0073aa;
+    color: #fff;
+    padding: 15px 20px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    z-index: 998;
+    transition: all 0.3s ease;
+    box-shadow: 0 -4px 12px rgba(0, 115, 170, 0.3);
+}
+
+.recovero-cart-tab:hover {
+    background: #005a87;
+    transform: translateY(-2px);
+}
+
+.recovero-cart-tab-content {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 15px;
+    width: 300px;
+    display: none;
+    animation: recovero-slideUp 0.3s ease-out;
+}
+
+.recovero-cart-tab-content.show {
+    display: block;
+}
+
+.recovero-cart-tab-items {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+}
+
+.recovero-cart-tab-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.recovero-cart-tab-item:last-child {
+    border-bottom: none;
+}
+
+.recovero-cart-tab-item-image {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+
+.recovero-cart-tab-item-details {
+    flex: 1;
+}
+
+.recovero-cart-tab-item-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.recovero-cart-tab-item-price {
+    color: #666;
+    font-size: 12px;
+}
+
+.recovero-cart-tab-item-quantity {
+    color: #999;
+    font-size: 12px;
+}
+
+.recovero-cart-tab-total {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
+    text-align: right;
+}
+
+.recovero-cart-tab-button {
+    background: #0073aa;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.2s ease;
+}
+
+.recovero-cart-tab-button:hover {
+    background: #005a87;
+}
+
+/* Animations */
+@keyframes recovero-fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes recovero-slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes recovero-slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes recovero-pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .recovero-exit-intent-content {
+        padding: 20px;
+        margin: 20px;
+    }
+    
+    .recovero-exit-intent-title {
+        font-size: 20px;
+    }
+    
+    .recovero-recovery-banner-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .recovero-recovery-banner-text {
+        margin-right: 0;
+        margin-bottom: 15px;
+    }
+    
+    .recovero-whatsapp-widget {
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .recovero-whatsapp-button {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+    
+    .recovero-whatsapp-popup {
+        width: 280px;
+        right: -10px;
+    }
+    
+    .recovero-push-notification {
+        left: 20px;
+        right: 20px;
+        max-width: none;
+    }
+    
+    .recovero-cart-tab {
+        bottom: 15px;
+        left: 15px;
+    }
+    
+    .recovero-cart-tab-content {
+        width: 280px;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .recovero-exit-intent-content {
+        background: #333;
+        color: #fff;
+    }
+    
+    .recovero-exit-intent-title {
+        color: #fff;
+    }
+    
+    .recovero-exit-intent-message {
+        color: #ccc;
+    }
+    
+    .recovero-exit-intent-email {
+        background: #444;
+        border-color: #555;
+        color: #fff;
+    }
+    
+    .recovero-whatsapp-popup {
+        background: #333;
+        color: #fff;
+    }
+    
+    .recovero-whatsapp-popup-message {
+        color: #ccc;
+    }
+    
+    .recovero-whatsapp-popup-input {
+        background: #444;
+        border-color: #555;
+        color: #fff;
+    }
+    
+    .recovero-push-notification {
+        background: #333;
+        color: #fff;
+    }
+    
+    .recovero-push-notification-title {
+        color: #fff;
+    }
+    
+    .recovero-push-notification-body {
+        color: #ccc;
+    }
+    
+    .recovero-cart-tab-content {
+        background: #333;
+        color: #fff;
+    }
+    
+    .recovero-cart-tab-item-name {
+        color: #fff;
+    }
+    
+    .recovero-cart-tab-total {
+        color: #fff;
+    }
+}
