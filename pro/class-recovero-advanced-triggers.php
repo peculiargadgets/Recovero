@@ -3,27 +3,17 @@ if (!defined('ABSPATH')) exit;
 
 class Recovero_Advanced_Triggers {
     public function __construct() {
-        add_action('recovero_cron_hook', [$this, 'process_pro_reminders'], 20); // run after core
+        add_action('recovero_cron_hook', [$this, 'process_pro_reminders'], 20);
     }
 
-    /**
-     * Multi-stage reminder state machine
-     * stages:
-     *  0 = none
-     *  1 = email sent
-     *  2 = whatsapp sent
-     *  3 = coupon sent
-     */
     public function process_pro_reminders() {
         global $wpdb;
         $carts_table = $wpdb->prefix . 'recovero_abandoned_carts';
         $logs_table = $wpdb->prefix . 'recovero_recovery_logs';
 
-        // fetch carts that are abandoned
         $carts = $wpdb->get_results("SELECT * FROM {$carts_table} WHERE status = 'abandoned' LIMIT 100");
 
         foreach ($carts as $cart) {
-            // fetch latest log stage
             $latest = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$logs_table} WHERE cart_id = %d ORDER BY sent_at DESC LIMIT 1", $cart->id));
             $stage = 0;
             $last_sent = 0;
@@ -33,7 +23,6 @@ class Recovero_Advanced_Triggers {
                 if ($latest->method === 'coupon' && $latest->status === 'sent') $stage = 3;
                 $last_sent = strtotime($latest->sent_at);
             } else {
-                // no logs
                 $stage = 0;
                 $last_sent = strtotime($cart->created_at);
             }
@@ -41,14 +30,11 @@ class Recovero_Advanced_Triggers {
             $now = time();
             $hours_since = ($now - $last_sent) / 3600;
 
-            // Delay configuration (could be admin settings)
             $email_delay = floatval(get_option('recovero_delay_hours', 1));
             $whatsapp_delay = floatval(get_option('recovero_whatsapp_delay', 6));
             $coupon_delay = floatval(get_option('recovero_coupon_delay', 24));
 
-            // Determine next action
             if ($stage === 0 && $hours_since >= $email_delay) {
-                // send email (core already sends maybe; to avoid duplication, call recovery)
                 $recovery = new Recovero_Recovery();
                 $recovery->send_email($cart);
                 $wpdb->insert($logs_table, [
@@ -59,9 +45,8 @@ class Recovero_Advanced_Triggers {
                     'sent_at' => current_time('mysql')
                 ]);
             } elseif ($stage === 1 && $hours_since >= $whatsapp_delay) {
-                // send whatsapp (require phone)
                 $phone = $cart->phone;
-                if (!empty($phone)) {
+                if (!empty($phone) && get_option('recovero_whatsapp_enable')) {
                     $wa = new Recovero_WhatsApp();
                     $msg = $this->build_whatsapp_message($cart);
                     $res = $wa->send_message($phone, $msg);
@@ -74,10 +59,8 @@ class Recovero_Advanced_Triggers {
                     ]);
                 }
             } elseif ($stage === 2 && $hours_since >= $coupon_delay) {
-                // generate coupon and send via email
                 $coupon = new Recovero_Recovery_Coupon();
                 $code = $coupon->create_coupon_for_cart($cart);
-                // log
                 $wpdb->insert($logs_table, [
                     'cart_id' => $cart->id,
                     'method' => 'coupon',
@@ -85,7 +68,6 @@ class Recovero_Advanced_Triggers {
                     'token' => $code,
                     'sent_at' => current_time('mysql')
                 ]);
-                // send coupon email
                 $this->send_coupon_email($cart, $code);
             }
         }
@@ -102,8 +84,7 @@ class Recovero_Advanced_Triggers {
             }
         }
         $link = add_query_arg('recovero_token', recovero_generate_token(24), wc_get_cart_url());
-        $msg = "You left items in your cart: " . implode(', ', $list) . ". Complete your order: " . $link;
-        return $msg;
+        return "You left items in your cart: " . implode(', ', $list) . ". Complete your order: " . $link;
     }
 
     private function send_coupon_email($cart, $code) {
