@@ -1,4 +1,4 @@
-?php
+<?php
 /**
  * Recovero Tracker Class
  * Handles cart tracking functionality
@@ -100,10 +100,20 @@ class Recovero_Tracker {
     }
     
     /**
-     * Track cart quantity change
+     * Track quantity change
      */
     public function track_quantity_change($cart_item_key, $quantity, $old_quantity, $cart) {
         $this->track_cart();
+    }
+    
+    /**
+     * Get session ID
+     */
+    private function get_session_id() {
+        if (WC()->session) {
+            return WC()->session->get_customer_id();
+        }
+        return session_id();
     }
     
     /**
@@ -117,16 +127,15 @@ class Recovero_Tracker {
         $cart_items = [];
         foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
             $product = $cart_item['data'];
-            
             $cart_items[] = [
                 'product_id' => $product->get_id(),
                 'name' => $product->get_name(),
-                'price' => $product->get_price(),
                 'quantity' => $cart_item['quantity'],
+                'price' => $product->get_price(),
                 'subtotal' => $cart_item['line_subtotal'],
                 'total' => $cart_item['line_total'],
-                'variation_id' => isset($cart_item['variation_id']) ? $cart_item['variation_id'] : 0,
-                'cart_item_key' => $cart_item_key
+                'image' => wp_get_attachment_url($product->get_image_id()),
+                'category' => wp_get_post_terms($product->get_id(), 'product_cat')[0]->name ?? ''
             ];
         }
         
@@ -137,45 +146,25 @@ class Recovero_Tracker {
      * Save cart data
      */
     private function save_cart_data($cart_data) {
-        $user_id = get_current_user_id();
         $session_id = $this->get_session_id();
-        $email = $this->get_user_email();
-        $phone = $this->get_user_phone();
-        $name = $this->get_user_name();
-        $ip = $this->get_user_ip();
+        $user_id = get_current_user_id();
         
         $cart_info = [
-            'user_id' => $user_id,
             'session_id' => $session_id,
-            'email' => $email,
-            'phone' => $phone,
-            'cart_data' => $cart_data,
-            'ip' => $ip,
-            'location' => $this->get_user_location($ip),
-            'status' => 'abandoned'
+            'user_id' => $user_id > 0 ? $user_id : null,
+            'email' => $this->get_user_email(),
+            'phone' => $this->get_user_phone(),
+            'customer_name' => $this->get_user_name(),
+            'cart_data' => json_encode($cart_data),
+            'cart_total' => WC()->cart->get_total('edit'),
+            'currency' => get_woocommerce_currency(),
+            'ip_address' => $this->get_user_ip(),
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            'status' => 'active',
+            'created_at' => current_time('mysql')
         ];
         
-        // Save customer name to cart data
-        if (!empty($name)) {
-            $cart_info['customer_name'] = $name;
-        }
-        
         $this->db->save_cart($cart_info);
-    }
-    
-    /**
-     * Get session ID
-     */
-    private function get_session_id() {
-        if (WC()->session) {
-            return WC()->session->get_customer_id();
-        }
-        
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        return session_id();
     }
     
     /**
@@ -186,9 +175,7 @@ class Recovero_Tracker {
         
         if ($user_id > 0) {
             $user = get_userdata($user_id);
-            if ($user) {
-                return $user->user_email;
-            }
+            return $user ? $user->user_email : '';
         }
         
         // Check for guest email in checkout form
@@ -439,26 +426,28 @@ class Recovero_Tracker {
     public function track_page_view() {
         if (!is_cart() && !is_checkout() && !WC()->cart->is_empty()) {
             // Add JavaScript to track page exit
-            ?>
-            <script type="text/javascript">
+            $cart_data = $this->get_cart_data();
+            $ajax_url = admin_url('admin-ajax.php');
+            $nonce = wp_create_nonce('recovero_track_nonce');
+            
+            echo '<script type="text/javascript">
                 jQuery(document).ready(function($) {
-                    var cartData = <?php echo json_encode($this->get_cart_data()); ?>;
+                    var cartData = ' . json_encode($cart_data) . ';
                     
                     if (cartData && cartData.length > 0) {
                         // Track page view for potential abandonment
                         $.ajax({
-                            url: '<?php echo admin_url('admin-ajax.php'); ?>',
-                            type: 'POST',
+                            url: "' . $ajax_url . '",
+                            type: "POST",
                             data: {
-                                action: 'recovero_track_page_view',
+                                action: "recovero_track_page_view",
                                 cart_data: cartData,
-                                nonce: '<?php echo wp_create_nonce('recovero_track_nonce'); ?>'
+                                nonce: "' . $nonce . '"
                             }
                         });
                     }
                 });
-            </script>
-            <?php
+            </script>';
         }
     }
     
