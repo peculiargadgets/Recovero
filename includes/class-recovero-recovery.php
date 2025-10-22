@@ -1,13 +1,13 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+/**
+ * Recovero Admin - Dashboard, Settings, Logs
+ */
 if (!class_exists('WP_List_Table')) {
     require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
 }
 
-/**
- * Recovero Cart List Table
- */
 class Recovero_Carts_List extends WP_List_Table {
     private $db;
 
@@ -67,16 +67,15 @@ class Recovero_Carts_List extends WP_List_Table {
         $sortable = [];
         $this->_column_headers = [$columns, $hidden, $sortable];
 
+        // fetch data
         global $wpdb;
         $table = $wpdb->prefix . 'recovero_abandoned_carts';
         $items = $wpdb->get_results("SELECT * FROM {$table} ORDER BY created_at DESC LIMIT 200");
+
         $this->items = $items;
     }
 }
 
-/**
- * Recovero Admin Class
- */
 class Recovero_Admin {
     private $db;
 
@@ -118,7 +117,9 @@ class Recovero_Admin {
 
     public function page_settings() {
         $email_from = get_option('recovero_email_from', get_option('admin_email'));
-        $delay_hours = get_option('recovero_delay_hours', 1);
+        $wa_token = get_option('recovero_whatsapp_access_token', '');
+        $wa_phone_id = get_option('recovero_whatsapp_phone_number_id', '');
+        $wa_enable = get_option('recovero_whatsapp_enable', 0);
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Recovero Settings', 'recovero'); ?></h1>
@@ -132,7 +133,19 @@ class Recovero_Admin {
                     </tr>
                     <tr>
                         <th scope="row"><?php esc_html_e('Reminder Delay (hours)', 'recovero'); ?></th>
-                        <td><input type="number" name="recovero_delay_hours" value="<?php echo esc_attr($delay_hours); ?>" min="1" max="168"></td>
+                        <td><input type="number" name="recovero_delay_hours" value="<?php echo esc_attr(get_option('recovero_delay_hours', 1)); ?>" min="1" max="168"></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('WhatsApp Access Token', 'recovero'); ?></th>
+                        <td><input type="text" name="recovero_whatsapp_access_token" class="regular-text" value="<?php echo esc_attr($wa_token); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('WhatsApp Phone Number ID', 'recovero'); ?></th>
+                        <td><input type="text" name="recovero_whatsapp_phone_number_id" class="regular-text" value="<?php echo esc_attr($wa_phone_id); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Enable WhatsApp (Pro)', 'recovero'); ?></th>
+                        <td><label><input type="checkbox" name="recovero_whatsapp_enable" value="1" <?php checked(1, $wa_enable); ?> /> <?php esc_html_e('Enable WhatsApp messages (requires Pro)', 'recovero'); ?></label></td>
                     </tr>
                 </table>
                 <?php submit_button(__('Save Settings', 'recovero')); ?>
@@ -161,7 +174,7 @@ class Recovero_Admin {
                         <th><?php esc_html_e('Cart ID', 'recovero'); ?></th>
                         <th><?php esc_html_e('Method', 'recovero'); ?></th>
                         <th><?php esc_html_e('Status', 'recovero'); ?></th>
-                        <th><?php esc_html_e('Token', 'recovero'); ?></th>
+                        <th><?php esc_html_e('Token/Code', 'recovero'); ?></th>
                         <th><?php esc_html_e('Sent At', 'recovero'); ?></th>
                     </tr>
                 </thead>
@@ -186,11 +199,11 @@ class Recovero_Admin {
         if (!current_user_can('manage_woocommerce')) wp_die(__('Unauthorized', 'recovero'));
         check_admin_referer('recovero_settings_save');
 
-        $email = isset($_POST['recovero_email_from']) ? sanitize_email($_POST['recovero_email_from']) : '';
-        update_option('recovero_email_from', $email);
-
-        $delay = isset($_POST['recovero_delay_hours']) ? absint($_POST['recovero_delay_hours']) : 1;
-        update_option('recovero_delay_hours', $delay);
+        update_option('recovero_email_from', sanitize_email($_POST['recovero_email_from']));
+        update_option('recovero_delay_hours', absint($_POST['recovero_delay_hours']));
+        update_option('recovero_whatsapp_access_token', sanitize_text_field($_POST['recovero_whatsapp_access_token']));
+        update_option('recovero_whatsapp_phone_number_id', sanitize_text_field($_POST['recovero_whatsapp_phone_number_id']));
+        update_option('recovero_whatsapp_enable', isset($_POST['recovero_whatsapp_enable']) ? 1 : 0);
 
         wp_safe_redirect(admin_url('admin.php?page=recovero-settings&updated=1'));
         exit;
