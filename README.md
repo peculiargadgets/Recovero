@@ -109,7 +109,7 @@ Then check the debug log for Recovero-related errors.
 
 **Admin Actions**
 - `recovero_get_stats`: Get dashboard statistics
-_ `recovero_resend_email`: Resend recovery email
+- `recovero_resend_email`: Resend recovery email
 - `recovero_export_cart`: Export cart data
 
 **Hooks**
