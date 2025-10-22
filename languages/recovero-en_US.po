@@ -1,0 +1,11 @@
+msgid "Abandoned Cart Recovery"
+msgstr "Abandoned Cart Recovery"
+
+msgid "Total Recovered"
+msgstr "Total Recovered"
+
+msgid "Cart Tracked Successfully"
+msgstr "Cart Tracked Successfully"
+
+msgid "Recovery Email Sent"
+msgstr "Recovery Email Sent"

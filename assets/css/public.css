@@ -1,0 +1,2 @@
+/* Recovero public styles (minimal) */
+.recovero-exit-popup { position: fixed; bottom: 20px; right: 20px; background: #fff; border: 1px solid #ddd; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 99999; border-radius: 6px; }
