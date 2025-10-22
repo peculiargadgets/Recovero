@@ -41,9 +41,12 @@ class Recovero_Carts_List extends WP_List_Table {
         return [
             'cb' => '<input type="checkbox" />',
             'id' => __('ID', 'recovero'),
+            'customer_name' => __('Customer Name', 'recovero'),
             'email' => __('Email', 'recovero'),
+            'phone' => __('Phone', 'recovero'),
             'items' => __('Items', 'recovero'),
             'total' => __('Total', 'recovero'),
+            'location' => __('Location', 'recovero'),
             'status' => __('Status', 'recovero'),
             'created_at' => __('Created', 'recovero'),
             'actions' => __('Actions', 'recovero')
@@ -89,6 +92,42 @@ class Recovero_Carts_List extends WP_List_Table {
         }
         
         return $email;
+    }
+    
+    /**
+     * Column customer name
+     */
+    public function column_customer_name($item) {
+        $name = $item->customer_name;
+        if (empty($name)) {
+            $name = '<em>' . __('Not provided', 'recovero') . '</em>';
+        }
+        
+        return $name;
+    }
+    
+    /**
+     * Column phone
+     */
+    public function column_phone($item) {
+        $phone = $item->phone;
+        if (empty($phone)) {
+            $phone = '<em>' . __('Not provided', 'recovero') . '</em>';
+        }
+        
+        return $phone;
+    }
+    
+    /**
+     * Column location
+     */
+    public function column_location($item) {
+        $location = $item->location;
+        if (empty($location)) {
+            $location = '<em>' . __('Unknown', 'recovero') . '</em>';
+        }
+        
+        return $location;
     }
     
     /**
