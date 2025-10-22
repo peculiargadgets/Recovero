@@ -15,56 +15,28 @@
  */
 
 // If this file is called directly, abort.
-if ( ! defined( 'WPINC' ) ) {
-    die;
+if (!defined('ABSPATH')) {
+    exit; // Exit if accessed directly
 }
 
-define( 'RECOVERO_VERSION', '1.0.0' );
-define( 'RECOVERO_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
-define( 'RECOVERO_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'RECOVERO_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+// Define constants
+define('RECOVERO_VERSION', '1.0.0');
+define('RECOVERO_PATH', plugin_dir_path(__FILE__));
+define('RECOVERO_URL', plugin_dir_url(__FILE__));
+define('RECOVERO_BASENAME', plugin_basename(__FILE__));
 
-/**
- * Check if WooCommerce is active
- */
-function recovero_is_woocommerce_active() {
-    return in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) );
-}
+// Include main loader
+require_once RECOVERO_PATH . 'includes/class-recovero-loader.php';
+require_once RECOVERO_PATH . 'includes/class-recovero-activator.php';
+require_once RECOVERO_PATH . 'includes/class-recovero-deactivator.php';
 
-/**
- * Display admin notice if WooCommerce is not active
- */
-function recovero_woocommerce_not_active_notice() {
-    if ( ! recovero_is_woocommerce_active() ) {
-        ?>
-        <div class="error">
-            <p><?php _e( 'Recovero requires WooCommerce to be installed and active.', 'recovero' ); ?></p>
-        </div>
-        <?php
-    }
-}
+// Activation / Deactivation hooks
+register_activation_hook(__FILE__, ['Recovero_Activator', 'activate']);
+register_deactivation_hook(__FILE__, ['Recovero_Deactivator', 'deactivate']);
 
-/**
- * The core plugin class that is used to define internationalization,
- * admin-specific hooks, and public-facing site hooks.
- */
-require_once RECOVERO_PLUGIN_DIR . 'includes/class-recovero-loader.php';
-
-/**
- * Begins execution of the plugin.
- */
+// Run plugin
 function run_recovero() {
-    
-    // Check WooCommerce dependency
-    if ( ! recovero_is_woocommerce_active() ) {
-        add_action( 'admin_notices', 'recovero_woocommerce_not_active_notice' );
-        return;
-    }
-    
     $plugin = new Recovero_Loader();
     $plugin->run();
-    
 }
-
-// Run the plugin
 run_recovero();
